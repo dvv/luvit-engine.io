@@ -1,5 +1,6 @@
 local Table = require('table')
 local UTF8 = require('utf8')
+UTF8 = unicode.utf8
 
 ---
 -- Packet types.
