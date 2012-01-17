@@ -1,6 +1,5 @@
 local Table = require('table')
-local UTF8 = require('utf8')
-UTF8 = unicode.utf8
+local UTF8 = require('unicode').utf8
 
 ---
 -- Packet types.
@@ -91,7 +90,6 @@ function encodePayload(packets)
   local encoded = { }
   for i, packet in ipairs(packets) do
     local message = encodePacket(packet)
-    --Table.insert(encoded, #message)
     Table.insert(encoded, UTF8.len(message))
     Table.insert(encoded, ':')
     Table.insert(encoded, message)
@@ -136,7 +134,7 @@ function decodePayload(data)
 
     msg = UTF8.sub(buf, colon + 1, colon + n)
 
-    if n ~= #msg then
+    if n ~= UTF8.len(msg) then
       -- parser error - ignoring payload
       return ret
     end

@@ -27,9 +27,10 @@ assert(deep_equal(P.decode_packet('41'), {type='message',data='1'}))
 assert(deep_equal(P.decode_packet('j:unk4:1'), {type='error',data='parser error'}))
 assert(deep_equal(P.decode_packet('91'), {type='error',data='parser error'}))
 assert(deep_equal(P.decode('2:41'), {{type='message',data='1'}}))
-assert(deep_equal(P.decode('2:4125:4Привет семье!'), {{type='message',data='1'},{type='message',data='Привет семье!'}}))
+assert(deep_equal(P.decode('2:4114:4Привет семье!'), {{type='message',data='1'},{type='message',data='Привет семье!'}}))
 
 --local xx = { {type = 'message', data = 'Привет, мир!'}, {type = 'message', data = '\000\001\002\200'} }
 local xx = { {type = 'message', data = 'фуу'}, {type = 'message', data = '\000\001\002\200'} }
-p(P.encode(xx))
+--p(P.encode(xx))
+--p(P.decode(P.encode(xx)))
 assert(deep_equal(P.decode(P.encode(xx)), xx))
