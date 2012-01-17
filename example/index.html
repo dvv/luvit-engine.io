@@ -15,7 +15,24 @@ function log(a, b) {
     }
   }
 }
-var ws = new eio.Socket('ws://localhost:8080/engine.io')
+//var ws = new eio.Socket('ws://localhost:8080/engine.io')
+
+eio.transports.websocket.prototype.onData = function (data) {
+  data = eio.parser.decodePayload(data)
+  for (var i = 0, l = data.length; i < l; i++) {
+    this.onPacket(data[i])
+  }
+};
+eio.transports.websocket.prototype.write = function (packets) {
+  this.socket.send(eio.parser.encodePayload(packets));
+};
+
+
+var ws = new eio.Socket({
+  host: 'localhost',
+  port: 8080,
+  //transports: ['websocket']
+})
 log(ws)
 ws.onopen = function () {
   log('OPENX', ws)

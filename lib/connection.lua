@@ -1,3 +1,5 @@
+local d = process.env.DEBUG and debug or function () end
+
 --
 -- Connection
 --
@@ -21,7 +23,7 @@ local default_options = {
   onerror = function (self, error) end,
   onmessage = function (self, message) end,
   codec = require('./codec'),
-  upgrades = { },
+  upgrades = { 'websocket' },
   ping_timeout = 60000,
   ping_interval = 25000,
   disconnect_delay = 5000,
@@ -94,7 +96,7 @@ function Connection.prototype:close(code, reason)
     -- mark connection as closing
     self.readyState = Connection.CLOSING
     -- upon sending close frame...
-    self:_packet('close', nil, function ()
+    self:_packet('close', self:_close_packet(), function ()
       -- finish the response
       -- N.B. this will trigger res:on('closed') which will
       -- unbind response from connection,
@@ -117,16 +119,10 @@ function Connection.prototype:_bind(response)
     return
   end
 
-p('BIND', self.id)
+d('BIND', self.id)
 
   -- bind response
   self.res = response
-
-  -- any error in req closes the request
-  response.req:once('error', function (err)
-p('ERRINREQ', err)
-    response.req:close()
-  end)
 
   -- unbind the client when response is closed
   response:once('closed', function ()
@@ -142,7 +138,7 @@ p('ERRINREQ', err)
       self.options.onerror(self, err, reason)
     -- hard error
     elseif err then
-p('ERR', err)
+d('ERR', err)
       -- TODO: implement?
     end
     response:finish()
@@ -150,14 +146,7 @@ p('ERR', err)
 
   -- send opening frame for new connections
   if self.readyState == Connection.CONNECTING then
-    -- TODO: send various options
-    local HZ = require('json').stringify({
-      sid = self.id,
-      upgrades = self.options.upgrades,
-      pingTimeout = self.options.ping_timeout,
-      pingInterval = self.options.ping_interval,
-    })
-    self:_packet('open', HZ, function ()
+    self:_packet('open', self:_open_packet(), function ()
       -- and report connection is open
       self.readyState = Connection.OPEN
       self.options.onopen(self)
@@ -179,9 +168,9 @@ end
 --
 
 function Connection.prototype:_message(payload)
-p('DEC?', payload)
+d('DEC?', payload)
   local status, result = pcall(self.options.codec.decode, payload)
-p('DEC!', status, result)
+d('DEC!', status, result)
   if status then
     for _, packet in ipairs(result) do
       if packet.type == 'pong' then
@@ -195,8 +184,21 @@ p('DEC!', status, result)
       end
     end
   else
-p('DECERR', result, payload)
-    self.options.onerror(self, result)
+    local status, result = pcall(self.options.codec.decode_packet, payload)
+    if status then
+      if packet.type == 'pong' then
+        --self.options.onheartbeat(self)
+      elseif packet.type == 'message' then
+        self.options.onmessage(self, packet.data)
+      elseif packet.type == 'error' then
+        self.options.onerror(self, packet.data)
+      else
+        -- ???
+      end
+    else
+d('DECERR', result, payload)
+      self.options.onerror(self, result)
+    end
   end
 end
 
@@ -231,7 +233,7 @@ function Connection.prototype:_unbind()
   if self._ping_timer then Timer.clear_timer(self._ping_timer) end
   --
   if self.res then
-p('UNBIND', self.id)
+d('UNBIND', self.id)
     self.res = nil
     Timer.set_timeout(self.options.disconnect_delay, self._purge, self)
   end
@@ -246,7 +248,7 @@ function Connection.prototype:_purge()
     -- FIXME: this should not happen
     return
   end
---p('PURGE', self.id)
+--d('PURGE', self.id)
   self.readyState = Connection.CLOSED
   self.options.onclose(self)
   if self.id then
@@ -260,17 +262,15 @@ end
 --
 
 function Connection.prototype:_flush()
-p('FLUSH?', self._send_queue, self._flushing)
+d('FLUSH?', self._send_queue, self._flushing)
   if self._flushing then return end
   local nmessages = #self._send_queue
   if nmessages > 0 and self.res then
     self._flushing = true
-    local payload = self.options.codec.encode(self._send_queue)
-p('FLUSH', payload)
-    self.res:send(payload)
+    self:_send(self._send_queue)
     -- TODO: consider resetting in callback to `send`
     self._send_queue = { }
-    self._flushing = false
+    self._flushing = nil
   end
 end
 
@@ -280,11 +280,44 @@ end
 
 function Connection.prototype:_packet(ptype, pdata, callback)
   -- put message in outgoing buffer
-p('PACKET', ptype, pdata)
+d('PACKET', ptype, pdata)
   Table.insert(self._send_queue, { type = ptype, data = pdata })
   -- try to flush the buffer
   self:_flush()
   if callback then callback() end
+end
+
+--
+-- sender
+--
+
+function Connection.prototype:_send(packets)
+  local payload = self.options.codec.encode(packets)
+d('FLUSH', payload)
+  self.res:send(payload)
+end
+
+--
+-- compose open packet
+--
+
+function Connection.prototype:_open_packet()
+  -- TODO: send various options
+  local HZ = require('json').stringify({
+    sid = self.id,
+    upgrades = self.options.upgrades,
+    pingTimeout = self.options.ping_timeout,
+    pingInterval = self.options.ping_interval,
+  })
+  return HZ
+end
+
+--
+-- compose close packet
+--
+
+function Connection.prototype:_close_packet()
+  return nil
 end
 
 -- module

@@ -214,7 +214,7 @@ Transport.prototype.onClose = function () {
 var Transport = require('../transport')
   , parser = require('../parser')
   , util = require('../util')
-  , global = this
+  , global = window
 
 /**
  * Module exports.
@@ -361,7 +361,7 @@ var Transport = require('../transport')
   , JSON = require('./polling-jsonp')
   , util = require('../util')
   , parser = require('../parser')
-  , global = this
+  , global = window
 
 /**
  * Module exports.
@@ -559,7 +559,7 @@ Polling.prototype.uri = function () {
 var Polling = require('./polling')
   , EventEmitter = require('../event-emitter')
   , util = require('../util')
-  , global = this
+  , global = window
 
 /**
  * Module exports.
@@ -1006,7 +1006,7 @@ var XHR = require('./polling-xhr')
   , websocket = require('./websocket')
   , flashsocket = require('./flashsocket')
   , util = require('../util')
-  , global = this
+  , global = window
 
 /**
  * Export transports.
@@ -1964,7 +1964,7 @@ exports.decodePayload = function (data) {
  * Reference to global object.
  */
 
-var global = this;
+var global = window;
 
 /**
  * Status of page load.
@@ -2036,9 +2036,9 @@ exports.defer = function (fn) {
     return fn();
   }
 
-  //DVVexports.load(function () {
+  exports.load(function () {
     setTimeout(fn, 100);
-  //});
+  });
 };
 
 /**

@@ -1,12 +1,17 @@
 #!/usr/bin/env luvit
 
+process.env.DEBUG = '1'
+
 local Timer = require('timer')
 
 local WS = {
   new = function (res, options)
-    p('NEW', res and res.req.url)
+    p('NEW')
     local conn = require('./lib/connection').new(res, options)
     return conn
+  end,
+  get = function (id)
+    return require('./lib/connection').get(id)
   end,
   onopen = function (conn)
     p('OPEN', conn.id)
