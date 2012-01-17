@@ -1,15 +1,6 @@
 local Table = require('table')
 local UTF8 = require('utf8')
 
---
--- UTF-8 helpers
---
-
-local function utf8_len(str)
-  local _, count = str:gsub('[^\128-\193]', '')
-  return count
-end
-
 ---
 -- Packet types.
 --
