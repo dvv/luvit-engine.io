@@ -1,4 +1,5 @@
 local Table = require('table')
+local UTF8 = require('utf8')
 
 --
 -- UTF-8 helpers
@@ -99,7 +100,7 @@ function encodePayload(packets)
   for i, packet in ipairs(packets) do
     local message = encodePacket(packet)
     --Table.insert(encoded, #message)
-    Table.insert(encoded, utf8_len(message))
+    Table.insert(encoded, UTF8.len(message))
     Table.insert(encoded, ':')
     Table.insert(encoded, message)
   end
@@ -112,6 +113,10 @@ end
 -- @param {String} data
 -- @return {Array} packets
 -- @api public
+--
+
+--
+-- TODO: streaming, as Lua strings are not good at mangling
 --
 
 function decodePayload(data)
@@ -137,14 +142,14 @@ function decodePayload(data)
       return ret
     end
 
-    msg = buf:sub(colon + 1, colon + n)
+    msg = UTF8.sub(buf, colon + 1, colon + n)
 
     if n ~= #msg then
       -- parser error - ignoring payload
       return ret
     end
 
-    buf = buf:sub(colon + n + 1)
+    buf = UTF8.sub(buf, colon + n + 1)
 
     if #msg then
       packet = decodePacket(msg)
