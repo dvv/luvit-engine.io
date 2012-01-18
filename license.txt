@@ -1,22 +1,4 @@
-Crypto API for [Luvit](https://github.com/luvit/luvit)
-====
-
-A simple wrapper exposing OpenSSL interface.
-
-Example
--------
-
-    local Crypto = require('crypto')
-    local sha1 = Crypto.sha1('Привет, Мир!', true)
-    print('SHA1', 'Привет, Мир!', sha1)
-    assert(sha1 == 'd67f91f1f55b432342ec2392bf1110c86291fdd3')
-
-See [test](https://github.com/luvit/crypto/blob/master/test) for more.
-
-License
--------
-
-Copyright (c) 2011 Vladimir Dronnikov <dronnikov@gmail.com>
+Copyright (c) 2012 Vladimir Dronnikov <dronnikov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

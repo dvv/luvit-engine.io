@@ -8,27 +8,29 @@ bi-directional communication layer between systems.
 
 ### Server
 
-#### Listening on a port
+#### As a middleware layer
 
 ```lua
-local engine = require('engine')
-local server = engine.listen(80)
-
-server:on('connection', function(socket)
-  socket.send('utf 8 string')
-end)
-```
-
-#### Intercepting requests for a http.Server
-
-```lua
-local engine = require('engine')
-local http = require('server'):listen(3000)
-local server = engine:attach(http)
-
-server:on('connection', function(client)
-  client:on('message', function() end)
-  client:on('close', function() end)
+local engine_handler = require('engine.io')({
+  onopen = function (conn)
+  end,
+  onclose = function (conn)
+  end,
+  onmessage = function (conn, message)
+    -- repeater
+    conn:send(message)
+  end,
+  -- other options
+  -- ...
+})
+require('http').create_server('0.0.0.0', 8080, function (req, res)
+  if req.url:sub(1, 11) == '/engine.io?' then
+    engine_handler(req, res)
+  else
+    -- ...
+    res:set_code(404)
+    res:finish()
+  end
 end)
 ```
 
@@ -51,4 +53,4 @@ For more information on the client refer to the
 License
 -------
 
-Check [here](engine/license.txt).
+[MIT](engine.io/license.txt)
