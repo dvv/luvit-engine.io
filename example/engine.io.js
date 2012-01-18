@@ -801,7 +801,7 @@ Request.prototype.cleanup = function () {
   } catch(e) {}
 
   if (global.ActiveXObject) {
-    delete Browser.requests[this.index];
+    //DVVdelete Browser.requests[this.index];
   }
 
   this.xhr = null;

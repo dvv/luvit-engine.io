@@ -23,7 +23,7 @@ local default_options = {
   onerror = function (self, error) end,
   onmessage = function (self, message) end,
   codec = require('./codec'),
-  upgrades = { 'websocket' },
+  upgrades = { },--'websocket' },
   ping_timeout = 60000,
   ping_interval = 25000,
   disconnect_delay = 5000,
@@ -50,7 +50,7 @@ local nconn = 0
 -- create new connection
 --
 
-function Connection.new(response, options)
+function Connection.new(options)
   self = Connection.new_obj()
   -- TODO: add entropy
   nconn = nconn + 1
@@ -59,9 +59,6 @@ function Connection.new(response, options)
   self.readyState = Connection.CONNECTING
   connections[self.id] = self
   self._send_queue = { }
-  if response then
-    self:_bind(response)
-  end
   return self
 end
 
@@ -91,6 +88,8 @@ end
 function Connection.prototype:close(code, reason)
   -- can close only open[ing] connection
   if self.readyState < Connection.CLOSING then
+    -- stop ping
+    if self._ping_timer then Timer.clear_timer(self._ping_timer) end
     -- try to flush
     self:_flush()
     -- mark connection as closing
@@ -111,7 +110,7 @@ end
 -- bind the response to this connection
 --
 
-function Connection.prototype:_bind(response)
+function Connection.prototype:_bind(request, response)
 
   -- disallow binding more than one response
   if self.res then
@@ -131,7 +130,8 @@ d('BIND', self.id)
 
   -- any error in res closes the response,
   -- causing client unbind
-  response:once('error', function (err, reason)
+  local function onerror(err, reason)
+d('LOCALONERR', err)
     -- number errors are soft WebSocket protocol errors
     -- N.B. no error here means connection is closed orderly
     if type(err) == 'number' and err ~= 1000 then
@@ -141,8 +141,12 @@ d('BIND', self.id)
 d('ERR', err)
       -- TODO: implement?
     end
+    request:close()
     response:finish()
-  end)
+  end
+
+  request:once('error', onerror)
+  response:once('error', onerror)
 
   -- send opening frame for new connections
   if self.readyState == Connection.CONNECTING then
@@ -179,26 +183,15 @@ d('DEC!', status, result)
         self.options.onmessage(self, packet.data)
       elseif packet.type == 'error' then
         self.options.onerror(self, packet.data)
+      elseif packet.type == 'close' then
+        self:disconnect(packet.data)
       else
         -- ???
       end
     end
   else
-    local status, result = pcall(self.options.codec.decode_packet, payload)
-    if status then
-      if packet.type == 'pong' then
-        --self.options.onheartbeat(self)
-      elseif packet.type == 'message' then
-        self.options.onmessage(self, packet.data)
-      elseif packet.type == 'error' then
-        self.options.onerror(self, packet.data)
-      else
-        -- ???
-      end
-    else
 d('DECERR', result, payload)
-      self.options.onerror(self, result)
-    end
+    self.options.onerror(self, result)
   end
 end
 
@@ -307,7 +300,6 @@ function Connection.prototype:_open_packet()
     sid = self.id,
     upgrades = self.options.upgrades,
     pingTimeout = self.options.ping_timeout,
-    pingInterval = self.options.ping_interval,
   })
   return HZ
 end

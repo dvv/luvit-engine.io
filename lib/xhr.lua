@@ -1,72 +1,36 @@
 local Table = require('table')
+local Utils = require('utils')
 local OS = require('os')
 local parse_url = require('url').parse
 local parse_qs = require('querystring').parse
+local transports = require('./transport')
+
+local function parse_req(req)
+  -- engine.io way
+  local uri = parse_url(req.url)
+  local q = parse_qs(uri.query)
+  return q.sid, q.transport
+end
 
 return function (options)
 
-  local function parse_req(req)
-    -- engine.io way
-    local uri = parse_url(req.url)
-    local q = parse_qs(uri.query)
-    return q.sid, q.transport
-  end
-
-  local function new_connection(res)
-    local conn = options.new(res, options)
-    res:on('message', function (payload)
-p('INCOME', payload)
-      conn:_message(payload)
-    end)
+  local function new_connection(req, res, callback)
+    local conn = options.new(options)
+    if callback then
+      callback(conn)
+    else
+      return conn
+    end
   end
 
   local function get_connection(id)
     return options.get(id)
   end
 
-  local hixie76 = require('websocket/lib/hixie76').handshake
-  local hybi10 = require('websocket/lib/hybi10').handshake
-
-  local function websocket_handler(req, res, register)
-
-    -- request looks like WebSocket one?
-    if (req.headers.upgrade or ''):lower() ~= 'websocket' then
-      return respond(res, 400)
-    end
-    if not (',' .. (req.headers.connection or ''):lower() .. ','):match('[^%w]+upgrade[^%w]+') then
-      return respond(res, 400)
-    end
-
-    -- request has come from allowed origin?
-    local origin = req.headers.origin
-    --[[if not verify_origin(origin, options.origins) then
-      return respond(res, 401)
-    end]]--
-
-    -- guess the protocol
-    local location = origin and origin:sub(1, 5) == 'https' and 'wss' or 'ws'
-    location = location .. '://' .. req.headers.host .. req.url
-    -- determine protocol version
-    local ver = req.headers['sec-websocket-version']
-    local shaker = hixie76
-    if ver == '7' or ver == '8' or ver == '13' then
-      shaker = hybi10
-    end
-
-    -- disable buffering
-    res:nodelay(true)
-    -- ??? timeout(0)?
-
-    -- handshake, then register
-    shaker(req, res, origin, location, register)
-
-  end
-
   return function (req, res)
 
     -- any error in req closes the request
     req:once('error', function (err)
-d('ERRINREQ!!!', err)
       req:close()
     end)
 
@@ -83,11 +47,19 @@ d('ERRINREQ!!!', err)
     -- given request, get connection id, transport and other parameters
     local id, transport = parse_req(req)
 
+    -- determine transport, bail out if not found
+    transport = transports[transport]
+    if not transport then
+      res:set_code(404)
+      res:finish()
+      return
+    end
+
     -- given connection id, try to get the connection
     local conn = get_connection(id)
 
     --
-    -- INCOMING DATA
+    -- INCOMING DATA, for XHR transports
     --
 
     if req.method == 'POST' then
@@ -101,16 +73,15 @@ d('ERRINREQ!!!', err)
       end
 
       -- collect passed data
-      local data = ''
+      local buffer = ''
       req:on('data', function (chunk)
         -- TODO: consider streaming parser, to defeat concat
-        data = data .. chunk
+        buffer = buffer .. chunk
       end)
       -- data collected
       req:on('end', function ()
         -- send data to parser
-        conn:_message(data)
-        --res:emit('message', data)
+        conn:_message(buffer)
         -- and tell client that data is consumed OK
         res:write_head(204, {
           ['Content-Type'] = 'text/plain; charset=UTF-8',
@@ -124,57 +95,31 @@ d('ERRINREQ!!!', err)
 
     elseif req.method == 'GET' then
 
-      -- define XHR sender
-      -- TODO: extract, to not proliferate closures
-      res.send = function (self, data, callback)
-        self:finish(data, callback)
-      end
-
-      -- for existing connection...
-      if conn then
-
-        -- WebSocket?
-        if req.headers.upgrade then
-          -- delegate to websocket handler
-          websocket_handler(req, res, function (res)
-            res:on('message', function (payload)
-p('INCOME', payload)
-              conn:_message(payload)
-            end)
-            conn:_bind(res)
-          end)
-        else
-          -- send response headers
-          res:write_head(200, {
-            ['Content-Type'] = 'text/plain; charset=UTF-8'
-          })
-          -- bind response to the connection
-          conn:_bind(res)
+      transport.handshake(req, res, function ()
+        -- no such connection
+        if not conn then
+          -- it's not found?
+          if id then
+            res:set_code(404)
+            res:finish()
+            return
+          end
+          -- create new connection
+          conn = new_connection(req, res)
+          -- failed to create?
+          if not conn then
+            res:set_code(500)
+            res:finish()
+            return
+          end
         end
-
-      -- for new connection...
-      elseif not id then
-
-        -- WebSocket?
-        if req.headers.upgrade then
-          -- delegate to websocket handler
-          websocket_handler(req, res, new_connection)
-        else
-          -- turn chunking mode on
-          res.auto_chunked = true
-          -- bind response to the connection
-          -- TODO: generalize
-          conn = new_connection(res)
-        end
-
-      -- no such connection...
-      else
-
-        -- bail out
-        res:set_code(404)
-        res:finish()
-
-      end
+        -- attach sender
+        if not res.send then res.send = transport.send end
+        -- attach receiver
+        req:on('message', Utils.bind(conn, conn._message))
+        -- bind connection
+        conn:_bind(req, res)
+      end)
 
     --
     -- OPTIONS, to allow CORS preflight

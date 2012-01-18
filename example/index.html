@@ -32,6 +32,7 @@ var ws = new eio.Socket({
   host: 'localhost',
   port: 8080,
   //transports: ['websocket']
+  transports: ['polling']
 })
 log(ws)
 ws.onopen = function () {
