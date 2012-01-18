@@ -1,37 +1,16 @@
 local Table = require('table')
 local Utils = require('utils')
 local OS = require('os')
-local parse_url = require('url').parse
-local parse_qs = require('querystring').parse
-local transports = require('./transport')
-
-local function parse_req(req)
-  -- engine.io way
-  local uri = parse_url(req.url)
-  local q = parse_qs(uri.query)
-  return q.sid, q.transport
-end
 
 return function (options)
 
-  local function new_connection(req, res, callback)
-    local conn = options.new(options)
-    if callback then
-      callback(conn)
-    else
-      return conn
-    end
-  end
-
-  local function get_connection(id)
-    return options.get(id)
-  end
+  local Session = options.session
 
   return function (req, res)
 
     -- any error in req closes the request
     req:once('error', function (err)
-      req:close()
+      if not req.closed then req.closed = true ; req:close() end
     end)
 
     -- turn chunking mode off
@@ -45,10 +24,7 @@ return function (options)
     if header then res:set_header('Access-Control-Allow-Headers', header) end
 
     -- given request, get connection id, transport and other parameters
-    local id, transport = parse_req(req)
-
-    -- determine transport, bail out if not found
-    transport = transports[transport]
+    local id, transport = Session.parse_req(req)
     if not transport then
       res:set_code(404)
       res:finish()
@@ -56,10 +32,10 @@ return function (options)
     end
 
     -- given connection id, try to get the connection
-    local conn = get_connection(id)
+    local conn = Session.get(id)
 
     --
-    -- INCOMING DATA, for XHR transports
+    -- INCOMING DATA, for XHR/JSONP transports
     --
 
     if req.method == 'POST' then
@@ -95,6 +71,7 @@ return function (options)
 
     elseif req.method == 'GET' then
 
+      -- verify connection
       transport.handshake(req, res, function ()
         -- no such connection
         if not conn then
@@ -105,7 +82,7 @@ return function (options)
             return
           end
           -- create new connection
-          conn = new_connection(req, res)
+          conn = Session.new(options, req, res)
           -- failed to create?
           if not conn then
             res:set_code(500)

@@ -2,17 +2,9 @@
 
 process.env.DEBUG = '1'
 
-local Timer = require('timer')
-
-local WS = {
-  new = function (res, options)
-    p('NEW')
-    local conn = require('./lib/connection').new(res, options)
-    return conn
-  end,
-  get = function (id)
-    return require('./lib/connection').get(id)
-  end,
+local socket_options = {
+  mount = '/engine.io?',
+  session = require('./lib/connection'),
   onopen = function (conn)
     p('OPEN', conn.id)
   end,
@@ -34,7 +26,7 @@ local WS = {
   end,
 }
 
-local handle_engine = require('./lib/xhr')(WS)
+local handle_engine = require('engine.io')(socket_options)
 
 local handle_static = require('static')('/', {
   directory = __dirname .. '/example',
@@ -43,7 +35,7 @@ local handle_static = require('static')('/', {
 
 require('http').create_server('0.0.0.0', 8080, function (req, res)
   --p('REQ', req.method, req.url, req.headers)
-  if req.url:sub(1, 11) == '/engine.io?' then
+  if req.url:find(socket_options.mount, 1, true) == 1 then
     handle_engine(req, res)
   else
     handle_static(req, res, function ()

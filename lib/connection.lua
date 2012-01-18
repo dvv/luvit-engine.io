@@ -8,6 +8,14 @@ local Table = require('table')
 local Utils = require('utils')
 local Timer = require('timer')
 
+local parse_url = require('url').parse
+local parse_qs = require('querystring').parse
+local transports = require('./transport')
+
+--
+-- connection states
+--
+
 local Connection = {
   CONNECTING = 0,
   OPEN = 1,
@@ -68,6 +76,13 @@ end
 
 function Connection.get(id)
   return connections[id]
+end
+
+function Connection.parse_req(req)
+  -- engine.io way
+  local uri = parse_url(req.url)
+  local q = parse_qs(uri.query)
+  return q.sid, transports[q.transport]
 end
 
 --
@@ -141,7 +156,7 @@ d('LOCALONERR', err)
 d('ERR', err)
       -- TODO: implement?
     end
-    request:close()
+    --if not request.closed then request.closed = true ; request:close() end
     response:finish()
   end
 
@@ -163,7 +178,9 @@ d('ERR', err)
   end
 
   -- start ping
-  self._ping_timer = Timer.set_interval(self.options.ping_interval, self._ping, self)
+  if self.options.ping_interval then
+    self._ping_timer = Timer.set_interval(self.options.ping_interval, self._ping, self)
+  end
 
 end
 
@@ -218,10 +235,6 @@ end
 --
 
 function Connection.prototype:_unbind()
-  --[[if self._timeout then
-    Timer.clear_timer(self._timeout)
-    self._timeout = nil
-  end]]--
   -- stop ping
   if self._ping_timer then Timer.clear_timer(self._ping_timer) end
   --
