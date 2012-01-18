@@ -122,10 +122,10 @@ function Connection.prototype:close(code, reason)
 end
 
 --
--- bind the response to this connection
+-- bind channels to this connection and register this connection
 --
 
-function Connection.prototype:_bind(request, response)
+function Connection.prototype:register(request, response)
 
   -- disallow binding more than one response
   if self.res then
@@ -188,7 +188,7 @@ end
 -- handle incoming messages
 --
 
-function Connection.prototype:_message(payload)
+function Connection.prototype:onmessage(payload)
 d('DEC?', payload)
   local status, result = pcall(self.options.codec.decode, payload)
 d('DEC!', status, result)

@@ -4,7 +4,7 @@ process.env.DEBUG = '1'
 
 local socket_options = {
   mount = '/engine.io?',
-  session = require('./lib/connection'),
+  socket = require('./lib/socket'),
   onopen = function (conn)
     p('OPEN', conn.id)
   end,

@@ -168,7 +168,4 @@ return {
   decode_packet = decodePacket,
   encode = encodePayload,
   decode = decodePayload,
-  OPEN = packets.open,
-  CLOSE = packets.close,
-  MESSAGE = packets.message,
 }

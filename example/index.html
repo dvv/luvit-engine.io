@@ -31,6 +31,7 @@ eio.transports.websocket.prototype.write = function (packets) {
 var ws = new eio.Socket({
   host: 'localhost',
   port: 8080,
+  forceJSONP: true,
   //transports: ['websocket']
   transports: ['polling']
 })

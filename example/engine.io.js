@@ -358,7 +358,8 @@ function check () {
 
 var Transport = require('../transport')
   , XHR = require('./polling-xhr')
-  , JSON = require('./polling-jsonp')
+    //DVV
+  , JSONP = require('./polling-jsonp')
   , util = require('../util')
   , parser = require('../parser')
   , global = window
@@ -801,7 +802,8 @@ Request.prototype.cleanup = function () {
   } catch(e) {}
 
   if (global.ActiveXObject) {
-    //DVVdelete Browser.requests[this.index];
+    //DVV
+    delete Resuest.requests[this.index];
   }
 
   this.xhr = null;
@@ -1073,7 +1075,8 @@ function empty () { }
  */
 
 function JSONPPolling (opts) {
-  Transport.call(this, opts);
+  //DVV
+  Polling.call(this, opts);
 
   // add callback to jsonp global
   var self = this;

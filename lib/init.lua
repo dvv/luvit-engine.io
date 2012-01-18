@@ -2,9 +2,29 @@ local Table = require('table')
 local Utils = require('utils')
 local OS = require('os')
 
-return function (options)
+--
+-- handle requests to sockets
+--
 
-  local Session = options.session
+local function handler(options)
+
+  ---
+  -- Socket interface
+  --
+  -- should expose:
+  --   Socket.new(options, request, response) -- returns an instance of Socket
+  --   Socket.get(id) -- returns existsing Socket instance by its identifier
+  --   Socket.parse_req(request) -- returns tuple { id, transport }
+  --
+  --
+  -- Socket instance should expose:
+  --   Socket#register(request, response) -- bind incoming and outgoung channels to this socket. Pass 'open' packet if socket is not open
+  --   Socket#onmessage(text) -- text string is received
+  --   Socket#send(text) -- send given text string
+  --   Socket#close() -- orderly close the socket, and unregister this socket
+  --
+
+  local Socket = options.socket
 
   return function (req, res)
 
@@ -23,16 +43,16 @@ return function (options)
     header = req.headers['access-control-request-headers']
     if header then res:set_header('Access-Control-Allow-Headers', header) end
 
-    -- given request, get connection id, transport and other parameters
-    local id, transport = Session.parse_req(req)
+    -- given request, get socket id, transport and other parameters
+    local id, transport = Socket.parse_req(req)
     if not transport then
       res:set_code(404)
       res:finish()
       return
     end
 
-    -- given connection id, try to get the connection
-    local conn = Session.get(id)
+    -- given socket id, try to get the socket
+    local socket = Socket.get(id)
 
     --
     -- INCOMING DATA, for XHR/JSONP transports
@@ -40,8 +60,8 @@ return function (options)
 
     if req.method == 'POST' then
 
-      -- no such connection?
-      if not conn then
+      -- no such socket?
+      if not socket then
         -- bail out
         res:set_code(404)
         res:finish()
@@ -57,7 +77,7 @@ return function (options)
       -- data collected
       req:on('end', function ()
         -- send data to parser
-        conn:_message(buffer)
+        socket:onmessage(buffer)
         -- and tell client that data is consumed OK
         res:write_head(204, {
           ['Content-Type'] = 'text/plain; charset=UTF-8',
@@ -73,29 +93,29 @@ return function (options)
 
       -- verify connection
       transport.handshake(req, res, function ()
-        -- no such connection
-        if not conn then
+        -- no such socket
+        if not socket then
           -- it's not found?
           if id then
             res:set_code(404)
             res:finish()
             return
           end
-          -- create new connection
-          conn = Session.new(options, req, res)
+          -- create new socket
+          socket = Socket.new(options, req, res)
           -- failed to create?
-          if not conn then
+          if not socket then
             res:set_code(500)
             res:finish()
             return
           end
         end
-        -- attach sender
+        -- attach sender, if none attached by handshake procedure
         if not res.send then res.send = transport.send end
         -- attach receiver
-        req:on('message', Utils.bind(conn, conn._message))
-        -- bind connection
-        conn:_bind(req, res)
+        req:on('message', Utils.bind(socket, socket.message))
+        -- bind request and response to the socket
+        socket:register(req, res)
       end)
 
     --
@@ -126,3 +146,6 @@ return function (options)
   end
 
 end
+
+-- module
+return handler
