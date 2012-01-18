@@ -26,16 +26,23 @@ local common_options = {
 
 local engine_options = {
   mount = '/engine.io?',
-  socket = require('./lib/socket'),
+  socket = require('./lib/engine.io/socket'),
 } ; for k, v in pairs(common_options) do engine_options[k] = v end
 
-local sockjs_options = {
+--[[local sockjs_options = {
   mount = '/echo',
-  socket = require('./lib/socket'),
-} ; for k, v in pairs(common_options) do sockjs_options[k] = v end
+  socket = require('./lib/sockjs/socket'),
+} ; for k, v in pairs(common_options) do sockjs_options[k] = v end]]--
+
+local req_options = {
+  mount = '/ws',
+  socket = require('./lib/req/socket'),
+  timeout = 60000,
+} ; for k, v in pairs(common_options) do req_options[k] = v end
 
 local handle_engine = require('engine.io')(engine_options)
-local handle_sockjs = require('engine.io')(sockjs_options)
+--local handle_sockjs = require('engine.io')(sockjs_options)
+local handle_req = require('engine.io')(req_options)
 
 local handle_static = require('static')('/', {
   directory = __dirname .. '/example',
@@ -46,8 +53,10 @@ require('http').create_server('0.0.0.0', 8080, function (req, res)
   --p('REQ', req.method, req.url, req.headers)
   if req.url:find(engine_options.mount, 1, true) == 1 then
     handle_engine(req, res)
-  elseif req.url:find(sockjs_options.mount, 1, true) == 1 then
-    handle_sockjs(req, res)
+  --elseif req.url:find(sockjs_options.mount, 1, true) == 1 then
+  --  handle_sockjs(req, res)
+  elseif req.url:find(req_options.mount, 1, true) == 1 then
+    handle_req(req, res)
   else
     handle_static(req, res, function ()
       res:set_code(404)
