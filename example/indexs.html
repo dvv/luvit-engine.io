@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <script src="sockjs.js"></script>
+</head>
+<body>
+  <script>
+function log(a, b) {
+  if (typeof window.console !== 'undefined') {
+    console.log('LOG', a, b)
+  } else {
+    var args = Array.prototype.slice.call(arguments)
+    for (var i = 0; i < args.length; ++i) {
+      document.write(args[i] + '<br/>')
+    }
+  }
+}
+
+      var sockjs = new SockJS('http://localhost:8080/echo')
+      sockjs.onopen = function() {
+          log(' [*] Connected (using: '+sockjs.protocol+')')
+      }
+      sockjs.onclose = function(e) {
+          log(' [*] Disconnected ('+e.status + ' ' + e.reason+ ')')
+      }
+      sockjs.onmessage = function(e) {
+          log(' [ ] received: ' + JSON.stringify(e.data))
+      }
+
+
+  </script>
+</body></html>

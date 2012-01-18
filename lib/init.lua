@@ -2,6 +2,9 @@ local Table = require('table')
 local Utils = require('utils')
 local OS = require('os')
 
+local parse_url = require('url').parse
+local parse_qs = require('querystring').parse
+
 --
 -- handle requests to sockets
 --
@@ -27,6 +30,11 @@ local function handler(options)
   local Socket = options.socket
 
   return function (req, res)
+
+    -- prepare
+    res.req = req
+    req.uri = parse_url(req.url)
+    req.uri.query = parse_qs(req.uri.query)
 
     -- any error in req closes the request
     req:once('error', function (err)
@@ -68,22 +76,8 @@ local function handler(options)
         return
       end
 
-      -- collect passed data
-      local buffer = ''
-      req:on('data', function (chunk)
-        -- TODO: consider streaming parser, to defeat concat
-        buffer = buffer .. chunk
-      end)
-      -- data collected
-      req:on('end', function ()
-        -- send data to parser
-        socket:onmessage(buffer)
-        -- and tell client that data is consumed OK
-        res:write_head(204, {
-          ['Content-Type'] = 'text/plain; charset=UTF-8',
-        })
-        res:finish()
-      end)
+      -- pipe passed data to socket
+      transport.receive(req, res, Utils.bind(socket.onmessage, socket))
 
     --
     -- OUTGOING DATA
@@ -113,7 +107,7 @@ local function handler(options)
         -- attach sender, if none attached by handshake procedure
         if not res.send then res.send = transport.send end
         -- attach receiver
-        req:on('message', Utils.bind(socket, socket.message))
+        req:on('message', Utils.bind(socket.onmessage, socket))
         -- bind request and response to the socket
         socket:register(req, res)
       end)

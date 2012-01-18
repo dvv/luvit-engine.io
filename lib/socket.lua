@@ -8,8 +8,6 @@ local Table = require('table')
 local Utils = require('utils')
 local Timer = require('timer')
 
-local parse_url = require('url').parse
-local parse_qs = require('querystring').parse
 local transports = require('./transport')
 
 --
@@ -58,7 +56,7 @@ local nconn = 0
 -- create new connection
 --
 
-function Connection.new(options)
+function Connection.new(options, req, res)
   self = Connection.new_obj()
   -- TODO: add entropy
   nconn = nconn + 1
@@ -80,9 +78,9 @@ end
 
 function Connection.parse_req(req)
   -- engine.io way
-  local uri = parse_url(req.url)
-  local q = parse_qs(uri.query)
-  return q.sid, transports[q.transport]
+  local q = req.uri.query
+  local transport = q.j and 'jsonp' or q.transport
+  return q.sid, transports[transport]
 end
 
 --
@@ -213,14 +211,6 @@ d('DECERR', result, payload)
 end
 
 --
--- send ping
---
-
-function Connection.prototype:_ping()
-  self:_packet('ping')
-end
-
---
 -- disconnect the connection
 --
 
@@ -301,6 +291,14 @@ function Connection.prototype:_send(packets)
   local payload = self.options.codec.encode(packets)
 d('FLUSH', payload)
   self.res:send(payload)
+end
+
+--
+-- send ping
+--
+
+function Connection.prototype:_ping(...)
+  self:_packet('ping', ...)
 end
 
 --
