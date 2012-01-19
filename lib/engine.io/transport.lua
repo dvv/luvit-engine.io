@@ -65,7 +65,7 @@ local transports = {
 
     -- send = should be during WebSocket handshake
 
-    handshake = require('websocket'),
+    handshake = require('websocket').handler,
 
   },
 

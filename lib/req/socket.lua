@@ -77,10 +77,13 @@ function Connection.get(id)
 end
 
 function Connection.parse_req(req)
-  -- engine.io way
+  -- my way
   local q = req.uri.query
+  local path = req.uri.pathname
+  local id = path:match('/.*/(.*)')
+  if id == '' then id = nil end
   local transport = req.headers.upgrade and 'websocket' or 'polling'
-  return q.sid, transports[transport]
+  return id, transports[transport]
 end
 
 --

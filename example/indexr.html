@@ -29,7 +29,7 @@ ws.onmessage = function (message) {
   log('MESSAGEX', message.data)
 }
 
-var w = new WebSocket('ws://localhost:8080/ws')
+/*var w = new WebSocket('ws://localhost:8080/ws')
 w.onopen = function () {
   log('OPEN', w)
 }
@@ -41,7 +41,7 @@ w.onerror = function (err) {
 }
 w.onmessage = function (message) {
   log('MESSAGE', message.data)
-}
+}*/
 
 sx = function (str) {
   for (var i = 0; i < 10; ++i) ws.send(str || i)

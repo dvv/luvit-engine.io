@@ -10,7 +10,7 @@ var packets = {
   , upgrade:  'u'
 };
 
-var packetslist = Object.keys(packets);
+for (var i in packets) packets[packets[i]] = i
 
 /**
  * Premade error packet.
@@ -51,13 +51,16 @@ encodePacket = function (packet) {
  */
 
 decodePacket = function (data) {
+  var r = err
   var type = data.charAt(0)
-  if (Number(type) != type || !packetslist[type]) return err;
-  if (data.length > 1) {
-    return { type: packetslist[type], data: data.substring(1) };
-  } else {
-    return { type: packetslist[type] };
+  if (packets[type]) {
+    if (data.length > 1) {
+      r = { type: packets[type], data: data.substring(1) };
+    } else {
+      r = { type: packets[type] };
+    }
   }
+  return r
 };
 
 /**
@@ -349,18 +352,18 @@ console.log('PA', result, packets)
               //}, 0)
             // ping frame
             } else if (type === 'ping') {
-              self.send(encodePacket({type: 'pong', data: packet.data}))
+              self.send(encodePacket({ type: 'pong', data: packet.data }))
             // open frame
             } else if (type === 'close') {
               // disconnect with wasClean: false
               disconnect(false)
             // open frame
-            } else if (type === 'open') {
+            } else if (type === 'open' && self.readyState === WebSocketXHR.CONNECTING) {
               // data is session
               // parse session as urlencoded
               session = urldecode(data)
               session.interval = parseInt(session.interval, 10) || 0
-  console.log('SESS', session)
+console.log('SESS', session)
               // setup receiver URL
               url = url + '/' + session.id
               // mark socket as open
@@ -368,9 +371,16 @@ console.log('PA', result, packets)
               setTimeout(function () {
                 fire('open')
               }, 0)
+            // error frame, or error decoding frame
+            } else if (type === 'error') {
+              disconnect()
+              /*if (self.readyState !== WebSocketXHR.OPEN) {
+                self.readyState = WebSocketXHR.CLOSED
+              }*/
             // unknown frame. ignore
             } else {
-              
+console.log('UNKNOWN FRAME', packet)
+              disconnect()
             }
           }
         }

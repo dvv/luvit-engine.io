@@ -1,5 +1,5 @@
 return {
-  name = "engine",
+  name = "engine.io",
   version = "0.0.1",
   description = "engine.io for Luvit",
   author = "Vladimir Dronnikov <dronnikov@gmail.com>",
